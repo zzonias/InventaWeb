@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Painel de Indicadores{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Estilos específicos do Dashboard */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+
+    .stat-card {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .stat-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+    }
+
+    /* Variações de cores para os ícones baseadas no azul */
+    .bg-blue-1 { background: #E3F2FD; color: #0052CC; }
+    .bg-blue-2 { background: #E1F5FE; color: #0288D1; }
+    .bg-blue-3 { background: #E0F7FA; color: #0097A7; }
+    .bg-blue-4 { background: #E8EAF6; color: #3F51B5; }
+
+    .stat-content h3 {
+        font-size: 14px;
+        color: var(--text-muted);
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+
+    .stat-content .value {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <div class="card stat-card">
+        <div class="stat-icon bg-blue-1">
+            <i class="material-icons-outlined">attach_money</i>
+        </div>
+        <div class="stat-content">
+            <h3>Faturamento Total</h3>
+            <div class="value" id="val-revenue">R$ 0,00</div>
+        </div>
+    </div>
+
+    <div class="card stat-card">
+        <div class="stat-icon bg-blue-2">
+            <i class="material-icons-outlined">point_of_sale</i>
+        </div>
+        <div class="stat-content">
+            <h3>Total de Vendas</h3>
+            <div class="value" id="val-sales">0</div>
+        </div>
+    </div>
+
+    <div class="card stat-card">
+        <div class="stat-icon bg-blue-3">
+            <i class="material-icons-outlined">inventory_2</i>
+        </div>
+        <div class="stat-content">
+            <h3>Produtos Cadastrados</h3>
+            <div class="value" id="val-products">0</div>
+        </div>
+    </div>
+
+    <div class="card stat-card">
+        <div class="stat-icon bg-blue-4">
+            <i class="material-icons-outlined">people</i>
+        </div>
+        <div class="stat-content">
+            <h3>Clientes Ativos</h3>
+            <div class="value" id="val-customers">0</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2 style="font-size: 18px; margin-bottom: 16px;">Produtos com Estoque Baixo</h2>
+    <div class="table-container" style="margin-top: 0;">
+        <table class="modern-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Produto</th>
+                    <th>Preço</th>
+                    <th>Estoque Atual</th>
+                    <th>Estoque Mín.</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="low-stock-table-body">
+                <tr>
+                    <td colspan="6" style="text-align: center;">Carregando dados...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDashboardData();
+        loadLowStockProducts();
+    });
+
+    async function loadDashboardData() {
+        try {
+            const response = await fetch('/api/dashboard');
+            if(response.ok) {
+                const data = await response.json();
+                
+                // Formatar moeda
+                const revenueFormatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.revenue);
+                
+                document.getElementById('val-revenue').innerText = revenueFormatted;
+                document.getElementById('val-sales').innerText = data.total_sales;
+                document.getElementById('val-products').innerText = data.total_products;
+                document.getElementById('val-customers').innerText = data.total_customers;
+            } else {
+                console.error("Erro ao carregar dashboard", response.status);
+            }
+        } catch (error) {
+            console.error("Erro de conexão", error);
+        }
+    }
+
+    async function loadLowStockProducts() {
+        try {
+            const response = await fetch('/api/products/low-stock');
+            const tbody = document.getElementById('low-stock-table-body');
+            
+            if(response.ok) {
+                const products = await response.json();
+                tbody.innerHTML = '';
+                
+                if(products.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--success);">Todos os produtos estão com estoque adequado!</td></tr>';
+                    return;
+                }
+                
+                products.forEach(p => {
+                    // API retorna tuplas ou arrays se não usar row_factory.
+                    // Assumindo estrutura do SQLite fetchall padrão (id, name, price, stock, min_stock)
+                    // Mas notei que no main.py não usa row_factory, então vem como array: [id, name, price, stock, min_stock]
+                    const id = p[0];
+                    const name = p[1];
+                    const price = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p[2]);
+                    const stock = p[3];
+                    const min_stock = p[4];
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>#${id}</td>
+                        <td style="font-weight: 500;">${name}</td>
+                        <td>${price}</td>
+                        <td style="color: var(--danger); font-weight: bold;">${stock}</td>
+                        <td>${min_stock}</td>
+                        <td><span class="badge badge-danger">Baixo</span></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger);">Erro ao carregar dados.</td></tr>';
+            }
+        } catch (error) {
+            console.error("Erro de conexão", error);
+            document.getElementById('low-stock-table-body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger);">Erro de conexão com o servidor.</td></tr>';
+        }
+    }
+</script>
+{% endblock %}

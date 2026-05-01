@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Produtos{% endblock %}
+{% block page_title %}Gestão de Produtos{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <p style="color: var(--text-muted);">Gerencie o catálogo e o estoque dos seus produtos.</p>
+    <button class="btn btn-primary" onclick="openModal('modal-produto')">
+        <i class="material-icons-outlined">add</i> Novo Produto
+    </button>
+</div>
+
+<div class="card">
+    <div class="table-container" style="margin-top: 0;">
+        <table class="modern-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome do Produto</th>
+                    <th>Preço (R$)</th>
+                    <th>Estoque</th>
+                    <th>Estoque Mínimo</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="produtos-table-body">
+                <tr>
+                    <td colspan="6" style="text-align: center;">Carregando produtos...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Novo Produto -->
+<div class="modal-overlay" id="modal-produto">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Cadastrar Novo Produto</h2>
+            <i class="material-icons-outlined close-btn" onclick="closeModal('modal-produto')">close</i>
+        </div>
+        
+        <form id="form-produto" onsubmit="salvarProduto(event)">
+            <div class="form-group">
+                <label for="nome">Nome do Produto</label>
+                <input type="text" id="nome" class="form-control" required placeholder="Ex: Camiseta Básica">
+            </div>
+            
+            <div style="display: flex; gap: 16px;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="preco">Preço (R$)</label>
+                    <input type="number" id="preco" class="form-control" step="0.01" min="0.01" required placeholder="0.00">
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 16px;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="estoque">Estoque Inicial</label>
+                    <input type="number" id="estoque" class="form-control" min="0" required placeholder="0">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="min_estoque">Estoque Mínimo</label>
+                    <input type="number" id="min_estoque" class="form-control" min="0" required placeholder="0">
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+                <button type="button" class="btn" style="background: #DFE1E6; color: var(--text-main);" onclick="closeModal('modal-produto')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Produto</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        loadProdutos();
+    });
+
+    async function loadProdutos() {
+        try {
+            const response = await fetch('/api/products');
+            const tbody = document.getElementById('produtos-table-body');
+            
+            if(response.ok) {
+                const products = await response.json();
+                tbody.innerHTML = '';
+                
+                if(products.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Nenhum produto cadastrado.</td></tr>';
+                    return;
+                }
+                
+                products.forEach(p => {
+                    const id = p[0];
+                    const name = p[1];
+                    const price = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p[2]);
+                    const stock = p[3];
+                    const min_stock = p[4];
+                    
+                    let statusBadge = '<span class="badge badge-success">OK</span>';
+                    if (stock <= min_stock) {
+                        statusBadge = '<span class="badge badge-danger">Baixo</span>';
+                    }
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>#${id}</td>
+                        <td style="font-weight: 500;">${name}</td>
+                        <td>${price}</td>
+                        <td>${stock}</td>
+                        <td>${min_stock}</td>
+                        <td>${statusBadge}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+        } catch (error) {
+            console.error("Erro ao carregar produtos", error);
+        }
+    }
+
+    async function salvarProduto(event) {
+        event.preventDefault();
+        
+        const payload = {
+            name: document.getElementById('nome').value,
+            price: parseFloat(document.getElementById('preco').value),
+            stock: parseInt(document.getElementById('estoque').value),
+            min_stock: parseInt(document.getElementById('min_estoque').value)
+        };
+        
+        try {
+            const response = await fetch('/api/products', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if(response.ok) {
+                closeModal('modal-produto');
+                document.getElementById('form-produto').reset();
+                loadProdutos(); // Recarrega a tabela
+            } else {
+                alert("Erro ao cadastrar produto.");
+            }
+        } catch (error) {
+            console.error("Erro", error);
+            alert("Erro de conexão.");
+        }
+    }
+</script>
+{% endblock %}

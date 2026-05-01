@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}InventaWeb{% endblock %} - Controle de Estoque</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Material Symbols (Icons) -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    
+    <!-- CSS Customizado -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-container">
+                <div class="logo-icon">IW</div>
+                <div class="logo-text">InventaWeb</div>
+            </div>
+            
+            <ul class="nav-menu">
+                <li class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <a href="{{ url_for('dashboard') }}" class="nav-link">
+                        <i class="material-icons-outlined">dashboard</i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item {% if request.endpoint == 'produtos' %}active{% endif %}">
+                    <a href="{{ url_for('produtos') }}" class="nav-link">
+                        <i class="material-icons-outlined">inventory_2</i>
+                        <span>Produtos</span>
+                    </a>
+                </li>
+                <li class="nav-item {% if request.endpoint == 'clientes' %}active{% endif %}">
+                    <a href="{{ url_for('clientes') }}" class="nav-link">
+                        <i class="material-icons-outlined">people</i>
+                        <span>Clientes</span>
+                    </a>
+                </li>
+                <li class="nav-item {% if request.endpoint == 'vendas' %}active{% endif %}">
+                    <a href="{{ url_for('vendas') }}" class="nav-link">
+                        <i class="material-icons-outlined">point_of_sale</i>
+                        <span>Vendas</span>
+                    </a>
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Topbar -->
+            <header class="topbar">
+                <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+                <div class="user-profile">
+                    <span class="user-name">Administrador</span>
+                    <div class="avatar">A</div>
+                </div>
+            </header>
+
+            <!-- Page Container -->
+            <div class="page-container">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts Base -->
+    <script>
+        // Funções globais de Modal
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if(modal) {
+                modal.style.display = 'flex';
+                // Pequeno delay para a animação de opacidade funcionar
+                setTimeout(() => modal.classList.add('active'), 10);
+            }
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if(modal) {
+                modal.classList.remove('active');
+                setTimeout(() => modal.style.display = 'none', 300);
+            }
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

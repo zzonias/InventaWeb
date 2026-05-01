@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Clientes{% endblock %}
+{% block page_title %}Gestão de Clientes{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <p style="color: var(--text-muted);">Gerencie sua base de clientes e contatos.</p>
+    <button class="btn btn-primary" onclick="openModal('modal-cliente')">
+        <i class="material-icons-outlined">person_add</i> Novo Cliente
+    </button>
+</div>
+
+<div class="card">
+    <div class="table-container" style="margin-top: 0;">
+        <table class="modern-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome do Cliente</th>
+                    <th>E-mail de Contato</th>
+                </tr>
+            </thead>
+            <tbody id="clientes-table-body">
+                <tr>
+                    <td colspan="3" style="text-align: center;">Carregando clientes...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Novo Cliente -->
+<div class="modal-overlay" id="modal-cliente">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Cadastrar Novo Cliente</h2>
+            <i class="material-icons-outlined close-btn" onclick="closeModal('modal-cliente')">close</i>
+        </div>
+        
+        <form id="form-cliente" onsubmit="salvarCliente(event)">
+            <div class="form-group">
+                <label for="nome">Nome Completo</label>
+                <input type="text" id="nome" class="form-control" required placeholder="Ex: Mariana Silva">
+            </div>
+            
+            <div class="form-group">
+                <label for="email">E-mail</label>
+                <input type="email" id="email" class="form-control" required placeholder="Ex: mariana@email.com">
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+                <button type="button" class="btn" style="background: #DFE1E6; color: var(--text-main);" onclick="closeModal('modal-cliente')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Cliente</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        loadClientes();
+    });
+
+    async function loadClientes() {
+        try {
+            const response = await fetch('/api/customers');
+            const tbody = document.getElementById('clientes-table-body');
+            
+            if(response.ok) {
+                const customers = await response.json();
+                tbody.innerHTML = '';
+                
+                if(customers.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Nenhum cliente cadastrado.</td></tr>';
+                    return;
+                }
+                
+                customers.forEach(c => {
+                    const id = c[0];
+                    const name = c[1];
+                    const email = c[2];
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>#${id}</td>
+                        <td style="font-weight: 500;">${name}</td>
+                        <td>${email}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+        } catch (error) {
+            console.error("Erro ao carregar clientes", error);
+        }
+    }
+
+    async function salvarCliente(event) {
+        event.preventDefault();
+        
+        const payload = {
+            name: document.getElementById('nome').value,
+            email: document.getElementById('email').value
+        };
+        
+        try {
+            const response = await fetch('/api/customers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if(response.ok) {
+                closeModal('modal-cliente');
+                document.getElementById('form-cliente').reset();
+                loadClientes(); // Recarrega a tabela
+            } else {
+                alert("Erro ao cadastrar cliente.");
+            }
+        } catch (error) {
+            console.error("Erro", error);
+            alert("Erro de conexão.");
+        }
+    }
+</script>
+{% endblock %}

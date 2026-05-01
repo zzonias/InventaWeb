@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Vendas{% endblock %}
+{% block page_title %}Histórico e Registro de Vendas{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <p style="color: var(--text-muted);">Registre novas vendas e acompanhe o histórico.</p>
+    <button class="btn btn-primary" onclick="abrirModalVenda()">
+        <i class="material-icons-outlined">add_shopping_cart</i> Nova Venda
+    </button>
+</div>
+
+<div class="card">
+    <div class="table-container" style="margin-top: 0;">
+        <table class="modern-table">
+            <thead>
+                <tr>
+                    <th>ID Venda</th>
+                    <th>Data</th>
+                    <th>Cliente (ID)</th>
+                    <th>Produto (ID)</th>
+                    <th>Qtd.</th>
+                    <th>Total (R$)</th>
+                </tr>
+            </thead>
+            <tbody id="vendas-table-body">
+                <tr>
+                    <td colspan="6" style="text-align: center;">Carregando vendas...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Nova Venda -->
+<div class="modal-overlay" id="modal-venda">
+    <div class="modal" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Registrar Nova Venda</h2>
+            <i class="material-icons-outlined close-btn" onclick="closeModal('modal-venda')">close</i>
+        </div>
+        
+        <form id="form-venda" onsubmit="salvarVenda(event)">
+            <div class="form-group">
+                <label for="cliente_id">Cliente</label>
+                <select id="cliente_id" class="form-control" required>
+                    <option value="">Selecione um cliente...</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; gap: 16px;">
+                <div class="form-group" style="flex: 2;">
+                    <label for="produto_id">Produto</label>
+                    <select id="produto_id" class="form-control" required onchange="atualizarTotalMock()">
+                        <option value="">Selecione um produto...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" style="flex: 1;">
+                    <label for="quantidade">Quantidade</label>
+                    <input type="number" id="quantidade" class="form-control" min="1" value="1" required oninput="atualizarTotalMock()">
+                </div>
+            </div>
+            
+            <!-- Alert message for Insufficient Stock or other errors -->
+            <div id="venda-alert" style="display: none; padding: 12px; border-radius: 8px; margin-bottom: 16px; background: rgba(255, 86, 48, 0.1); color: var(--danger); font-size: 14px;">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+                <button type="button" class="btn" style="background: #DFE1E6; color: var(--text-main);" onclick="closeModal('modal-venda')">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="btn-salvar-venda">Finalizar Venda</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let cacheProdutos = {}; // Para calcular total rapidamente no front
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadVendas();
+    });
+
+    async function loadVendas() {
+        try {
+            const response = await fetch('/api/sales');
+            const tbody = document.getElementById('vendas-table-body');
+            
+            if(response.ok) {
+                const sales = await response.json();
+                tbody.innerHTML = '';
+                
+                if(sales.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Nenhuma venda registrada.</td></tr>';
+                    return;
+                }
+                
+                // Reverso para mostrar as mais recentes primeiro (opcional)
+                sales.reverse().forEach(s => {
+                    const id = s[0];
+                    const customer_id = s[1];
+                    const product_id = s[2];
+                    const quantity = s[3];
+                    const total = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(s[4]);
+                    
+                    // Formatando a data ISO
+                    const date = new Date(s[5]).toLocaleString('pt-BR');
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>#${id}</td>
+                        <td>${date}</td>
+                        <td>#${customer_id}</td>
+                        <td>#${product_id}</td>
+                        <td>${quantity}</td>
+                        <td style="font-weight: bold; color: var(--success);">${total}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+        } catch (error) {
+            console.error("Erro ao carregar vendas", error);
+        }
+    }
+
+    async function abrirModalVenda() {
+        document.getElementById('venda-alert').style.display = 'none';
+        
+        // Carregar clientes
+        try {
+            const resC = await fetch('/api/customers');
+            const selectC = document.getElementById('cliente_id');
+            selectC.innerHTML = '<option value="">Selecione um cliente...</option>';
+            if(resC.ok) {
+                const customers = await resC.json();
+                customers.forEach(c => {
+                    selectC.innerHTML += `<option value="${c[0]}">${c[1]}</option>`;
+                });
+            }
+        } catch(e) { console.error("Erro carregando clientes"); }
+
+        // Carregar produtos
+        try {
+            const resP = await fetch('/api/products');
+            const selectP = document.getElementById('produto_id');
+            selectP.innerHTML = '<option value="">Selecione um produto...</option>';
+            cacheProdutos = {}; // Limpar cache
+            
+            if(resP.ok) {
+                const products = await resP.json();
+                products.forEach(p => {
+                    cacheProdutos[p[0]] = p[2]; // armazena preço
+                    // Mostrar estoque no label ajuda na UX
+                    selectP.innerHTML += `<option value="${p[0]}">${p[1]} (R$ ${p[2].toFixed(2)} | Estoque: ${p[3]})</option>`;
+                });
+            }
+        } catch(e) { console.error("Erro carregando produtos"); }
+
+        openModal('modal-venda');
+    }
+
+    function atualizarTotalMock() {
+        // Apenas visual, o cálculo real é no back-end
+        const prodId = document.getElementById('produto_id').value;
+        const qty = parseInt(document.getElementById('quantidade').value) || 1;
+        // console.log("Total Previsto:", cacheProdutos[prodId] * qty);
+    }
+
+    async function salvarVenda(event) {
+        event.preventDefault();
+        
+        const btn = document.getElementById('btn-salvar-venda');
+        const alertBox = document.getElementById('venda-alert');
+        btn.disabled = true;
+        alertBox.style.display = 'none';
+        
+        const payload = {
+            customer_id: parseInt(document.getElementById('cliente_id').value),
+            product_id: parseInt(document.getElementById('produto_id').value),
+            quantity: parseInt(document.getElementById('quantidade').value)
+        };
+        
+        try {
+            const response = await fetch('/api/sales', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if(response.ok) {
+                closeModal('modal-venda');
+                document.getElementById('form-venda').reset();
+                loadVendas(); // Recarrega a tabela de vendas
+            } else {
+                const err = await response.json();
+                alertBox.innerText = err.detail || "Erro ao registrar venda. Verifique estoque.";
+                alertBox.style.display = 'block';
+            }
+        } catch (error) {
+            alertBox.innerText = "Erro de conexão.";
+            alertBox.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}
