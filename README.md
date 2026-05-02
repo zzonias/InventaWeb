@@ -37,7 +37,7 @@ Após iniciar os dois servidores, abra o seu navegador e acesse o sistema pelo l
 
 O sistema já está configurado (`host='0.0.0.0'`) para aceitar conexões de outros computadores ou celulares que estejam conectados na **mesma rede Wi-Fi/cabo**. 
 
-Para acessar de outro dispositivo, basta substituir `127.0.0.1` pelo endereço IP do computador principal. Exemplo:
-`http://192.168.15.10:5000`
+Para acessar de outro dispositivo, basta substituir `127.0.0.1` pelo endereço IP do computador principal (ex: `192.168.x.x`). Exemplo:
+`http://SEU_IP_LOCAL:5000`
 
 *(Nota: Caso a página não carregue, verifique se o Firewall do Windows não está bloqueando o Python).*
