@@ -49,5 +49,5 @@ def api_proxy(subpath):
         return jsonify({"error": "Não foi possível conectar ao servidor Back-End. Verifique se ele está rodando."}), 503
 
 if __name__ == '__main__':
-    # Rodando o Flask na porta 5000
-    app.run(debug=True, port=5000)
+    # Rodando o Flask na porta 5000 acessível na rede
+    app.run(host='0.0.0.0', debug=True, port=5000)
