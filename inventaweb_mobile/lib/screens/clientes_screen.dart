@@ -30,10 +30,11 @@ class ClientesScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
                   Text('cliente@email.com'),
+                  Text('CPF: 000.000.000-00 | Tel: (11) 99999-9999', style: TextStyle(fontSize: 12, color: Colors.black54)),
                   SizedBox(height: 4),
                   Text(
-                    'Compra frequente: Camiseta Básica', // Nova funcionalidade pedida!
-                    style: TextStyle(fontSize: 12, color: AppTheme.secondaryColor),
+                    'Compra frequente: Camiseta Básica', // Nova funcionalidade!
+                    style: TextStyle(fontSize: 12, color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),

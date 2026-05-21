@@ -93,8 +93,11 @@
     </div>
 </div>
 
-<div class="card">
-    <h2 style="font-size: 18px; margin-bottom: 16px;">Produtos com Estoque Baixo</h2>
+<div class="card" style="border-left: 4px solid var(--danger);">
+    <h2 style="font-size: 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+        <i class="material-icons-outlined" style="color: var(--danger);">notifications_active</i> 
+        Caixa de Notificações: Alerta de Estoque Baixo
+    </h2>
     <div class="table-container" style="margin-top: 0;">
         <table class="modern-table">
             <thead>
@@ -160,14 +163,11 @@
                 }
                 
                 products.forEach(p => {
-                    // API retorna tuplas ou arrays se não usar row_factory.
-                    // Assumindo estrutura do SQLite fetchall padrão (id, name, price, stock, min_stock)
-                    // Mas notei que no main.py não usa row_factory, então vem como array: [id, name, price, stock, min_stock]
-                    const id = p[0];
-                    const name = p[1];
-                    const price = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p[2]);
-                    const stock = p[3];
-                    const min_stock = p[4];
+                    const id = p.id;
+                    const name = p.name;
+                    const price = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price);
+                    const stock = p.stock;
+                    const min_stock = p.min_stock;
                     
                     const row = document.createElement('tr');
                     row.innerHTML = `

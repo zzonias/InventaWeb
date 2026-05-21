@@ -52,13 +52,19 @@ class DashboardScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Avisos de Estoque',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textMainColor,
-              ),
+            Row(
+              children: const [
+                Icon(Icons.notifications_active, color: Colors.red),
+                SizedBox(width: 8),
+                Text(
+                  'Caixa de Notificações',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textMainColor,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             _buildStockAlert(

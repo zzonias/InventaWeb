@@ -100,14 +100,14 @@
                 
                 // Reverso para mostrar as mais recentes primeiro (opcional)
                 sales.reverse().forEach(s => {
-                    const id = s[0];
-                    const customer_id = s[1];
-                    const product_id = s[2];
-                    const quantity = s[3];
-                    const total = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(s[4]);
+                    const id = s.id;
+                    const customer_id = s.customer_id;
+                    const product_id = s.product_id;
+                    const quantity = s.quantity;
+                    const total = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(s.total);
                     
                     // Formatando a data ISO
-                    const date = new Date(s[5]).toLocaleString('pt-BR');
+                    const date = new Date(s.sale_date).toLocaleString('pt-BR');
                     
                     const row = document.createElement('tr');
                     row.innerHTML = `
@@ -137,7 +137,7 @@
             if(resC.ok) {
                 const customers = await resC.json();
                 customers.forEach(c => {
-                    selectC.innerHTML += `<option value="${c[0]}">${c[1]}</option>`;
+                    selectC.innerHTML += `<option value="${c.id}">${c.name}</option>`;
                 });
             }
         } catch(e) { console.error("Erro carregando clientes"); }
@@ -152,9 +152,9 @@
             if(resP.ok) {
                 const products = await resP.json();
                 products.forEach(p => {
-                    cacheProdutos[p[0]] = p[2]; // armazena preço
+                    cacheProdutos[p.id] = p.price; // armazena preço
                     // Mostrar estoque no label ajuda na UX
-                    selectP.innerHTML += `<option value="${p[0]}">${p[1]} (R$ ${p[2].toFixed(2)} | Estoque: ${p[3]})</option>`;
+                    selectP.innerHTML += `<option value="${p.id}">${p.name} (R$ ${p.price.toFixed(2)} | Estoque: ${p.stock})</option>`;
                 });
             }
         } catch(e) { console.error("Erro carregando produtos"); }

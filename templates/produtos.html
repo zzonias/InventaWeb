@@ -95,11 +95,11 @@
                 }
                 
                 products.forEach(p => {
-                    const id = p[0];
-                    const name = p[1];
-                    const price = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p[2]);
-                    const stock = p[3];
-                    const min_stock = p[4];
+                    const id = p.id;
+                    const name = p.name;
+                    const price = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price);
+                    const stock = p.stock;
+                    const min_stock = p.min_stock;
                     
                     let statusBadge = '<span class="badge badge-success">OK</span>';
                     if (stock <= min_stock) {
