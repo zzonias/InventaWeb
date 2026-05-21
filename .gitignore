@@ -7,3 +7,5 @@ venv/
 env/
 .idea/
 .vscode/
+cloudflared.exe
+*.db
