@@ -59,10 +59,20 @@
         <main class="main-content">
             <!-- Topbar -->
             <header class="topbar">
-                <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
-                <div class="user-profile">
-                    <span class="user-name">Administrador</span>
-                    <div class="avatar">A</div>
+                <div style="display: flex; align-items: center;">
+                    <button class="menu-toggle" onclick="toggleSidebar()">
+                        <i class="material-icons-outlined">menu</i>
+                    </button>
+                    <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+                </div>
+                <div class="user-profile" style="display: flex; align-items: center; gap: 16px;">
+                    <button onclick="toggleDarkMode()" style="background: none; border: none; cursor: pointer; color: var(--text-main);" title="Alternar Modo Escuro">
+                        <i class="material-icons-outlined" id="dark-mode-icon">dark_mode</i>
+                    </button>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span class="user-name">Administrador</span>
+                        <div class="avatar">A</div>
+                    </div>
                 </div>
             </header>
 
@@ -92,6 +102,30 @@
                 setTimeout(() => modal.style.display = 'none', 300);
             }
         }
+
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('open');
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const icon = document.getElementById('dark-mode-icon');
+            if(document.body.classList.contains('dark-mode')) {
+                icon.innerText = 'light_mode';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                icon.innerText = 'dark_mode';
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if(localStorage.getItem('theme') === 'dark') {
+                document.body.classList.add('dark-mode');
+                const icon = document.getElementById('dark-mode-icon');
+                if (icon) icon.innerText = 'light_mode';
+            }
+        });
     </script>
     {% block scripts %}{% endblock %}
 </body>

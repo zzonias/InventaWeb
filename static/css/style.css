@@ -343,3 +343,60 @@ body {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.1);
 }
+
+/* Responsividade e Menu Mobile */
+.menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 24px;
+    color: var(--text-main);
+    margin-right: 16px;
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: -260px;
+        height: 100vh;
+        transition: left 0.3s ease;
+    }
+    .sidebar.open {
+        left: 0;
+    }
+    .menu-toggle {
+        display: block !important;
+    }
+    .topbar {
+        padding: 0 16px;
+    }
+    .page-container {
+        padding: 16px;
+    }
+    .user-name {
+        display: none;
+    }
+}
+
+/* Modo Escuro */
+body.dark-mode {
+    --bg-color: #121212;
+    --surface: #1E1E1E;
+    --text-main: #E0E0E0;
+    --text-muted: #9E9E9E;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+    --shadow-md: 0 4px 8px rgba(0,0,0,0.5);
+    --shadow-lg: 0 12px 24px rgba(0,0,0,0.5);
+}
+body.dark-mode .modern-table th {
+    background-color: #2C2C2C;
+}
+body.dark-mode .modern-table tbody tr:hover {
+    background-color: #2C2C2C;
+}
+body.dark-mode .form-control {
+    background: #2C2C2C;
+    border-color: #333;
+    color: var(--text-main);
+}
