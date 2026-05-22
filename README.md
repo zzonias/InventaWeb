@@ -1,43 +1,45 @@
-# InventaWeb
+# InventaWeb 🚀
 
-Um sistema simples e moderno para controle de estoque e gestão de vendas. O projeto utiliza uma arquitetura separada com um Back-End rápido construído em **FastAPI** e um Front-End elegante construído em **Flask** (utilizando HTML, CSS puro e JavaScript).
+O **InventaWeb** é um sistema moderno, rápido e responsivo de gestão de estoque, vendas e clientes, construído com uma arquitetura dividida entre Front-end Web, App Mobile e Back-end.
 
-## 🚀 Tecnologias Utilizadas
+## 🛠 Arquitetura do Projeto
 
-- **Back-End:** Python, FastAPI, Banco de Dados SQLite.
-- **Front-End:** Python, Flask, HTML5, CSS3 (Design moderno com Flexbox e Grid), JavaScript (Fetch API).
+O sistema foi arquitetado para ser escalável e seguro, dividindo suas responsabilidades em:
 
-## 🛠️ Como Instalar e Configurar
+- **Back-end (FastAPI):** Uma API REST extremamente rápida em Python que se conecta com o banco de dados `SQLite` (`inventaweb.db`) para gerenciar e validar todas as transações, estoques e dados dos clientes.
+- **Front-end Web (Flask / HTML / CSS / JS):** Interface de administração rica e responsiva. Pode ser acessada tanto pelo computador quanto pelo celular (Web App) de forma confortável.
+- **Aplicativo Mobile (Dart / Flutter):** Um projeto de aplicativo nativo (`inventaweb_mobile`) focado na usabilidade de campo, consumindo as mesmas informações do servidor.
 
-1. Certifique-se de ter o [Python](https://www.python.org/downloads/) instalado no seu computador.
-2. Clone este repositório ou abra a pasta do projeto no seu terminal.
-3. Instale todas as dependências necessárias executando o comando abaixo:
-   ```powershell
-   pip install fastapi uvicorn pydantic flask requests
-   ```
+## ✨ Principais Funcionalidades
 
-## 💻 Como Rodar o Sistema
+- **📦 Gestão de Produtos:** Cadastro de itens com controle rigoroso de estoque e definição de estoque mínimo (alerta de baixa).
+- **👥 Gestão de Clientes:** Cadastro de clientes incluindo e-mail, CPF e telefone. O sistema calcula automaticamente o **Produto Favorito** (mais comprado) de cada cliente com base no histórico de vendas!
+- **🛒 PDV (Ponto de Venda):** Registro rápido de vendas, com dedução automática do estoque e cálculo de faturamento no Dashboard.
+- **🔔 Caixa de Notificações:** Sistema de alertas na tela inicial para produtos que estão atingindo o limite mínimo de estoque.
+- **📲 Integração WhatsApp:** Botão nativo para notificar clientes diretamente no WhatsApp sobre promoções.
+- **🌓 Modo Escuro (Dark Mode):** Suporte nativo para tema escuro e tema claro, ativável pelo usuário e salvo na sessão local do navegador.
+- **📱 Responsividade Extrema:** O layout se adapta perfeitamente a dispositivos móveis, com um Menu Hambúrguer retrátil para ganhar espaço em telas pequenas.
 
-O funcionamento do InventaWeb exige que o Back-End e o Front-End estejam rodando **ao mesmo tempo**. Para isso, abra **dois terminais** na pasta do projeto:
+## 🚀 Como Executar Localmente
 
-**No Terminal 1 (Iniciando o Back-End):**
-```powershell
-uvicorn main:app --reload --port 8000
+### 1. Iniciar o Back-end (API)
+Abra um terminal na pasta raiz do projeto e rode:
+```bash
+python -m uvicorn main:app --port 8000
 ```
 
-**No Terminal 2 (Iniciando o Front-End):**
-```powershell
+### 2. Iniciar o Front-end Web (Interface)
+Abra outro terminal na pasta raiz e rode:
+```bash
 python app.py
 ```
+A interface estará disponível em `http://127.0.0.1:5000`.
 
-Após iniciar os dois servidores, abra o seu navegador e acesse o sistema pelo link:
-👉 **`http://127.0.0.1:5000`**
+### 3. Expor para a Equipe (Opcional - Cloudflare)
+Se quiser gerar um link público para acessar do celular de qualquer lugar:
+```bash
+cloudflared tunnel --url http://127.0.0.1:5000
+```
 
-## 🌐 Acesso por Outros Dispositivos (Rede Local)
-
-O sistema já está configurado (`host='0.0.0.0'`) para aceitar conexões de outros computadores ou celulares que estejam conectados na **mesma rede Wi-Fi/cabo**. 
-
-Para acessar de outro dispositivo, basta substituir `127.0.0.1` pelo endereço IP do computador principal (ex: `192.168.x.x`). Exemplo:
-`http://SEU_IP_LOCAL:5000`
-
-*(Nota: Caso a página não carregue, verifique se o Firewall do Windows não está bloqueando o Python).*
+---
+*Desenvolvido em parceria com Antigravity AI.*
