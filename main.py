@@ -88,6 +88,36 @@ def create_product(product: Product):
     return {"message": "Produto cadastrado com sucesso"}
 
 
+@app.put("/products/{product_id}")
+def update_product(product_id: int, product: Product):
+    with get_connection() as conn:
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT id FROM products WHERE id = ?", (product_id,))
+        if not cursor.fetchone():
+            raise HTTPException(
+                status_code=404,
+                detail="Produto não encontrado"
+            )
+
+        cursor.execute(
+            """
+            UPDATE products 
+            SET name = ?, price = ?, stock = ?, min_stock = ?
+            WHERE id = ?
+            """,
+            (
+                product.name,
+                product.price,
+                product.stock,
+                product.min_stock,
+                product_id
+            )
+        )
+
+    return {"message": "Produto atualizado com sucesso"}
+
+
 @app.get("/products")
 def list_products():
     with get_connection() as conn:

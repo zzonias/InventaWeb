@@ -22,11 +22,12 @@
                     <th>Estoque</th>
                     <th>Estoque Mínimo</th>
                     <th>Status</th>
+                    <th>Ações</th>
                 </tr>
             </thead>
             <tbody id="produtos-table-body">
                 <tr>
-                    <td colspan="6" style="text-align: center;">Carregando produtos...</td>
+                    <td colspan="7" style="text-align: center;">Carregando produtos...</td>
                 </tr>
             </tbody>
         </table>
@@ -72,6 +73,47 @@
         </form>
     </div>
 </div>
+
+<!-- Modal Editar Produto -->
+<div class="modal-overlay" id="modal-editar-produto">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Editar Produto</h2>
+            <i class="material-icons-outlined close-btn" onclick="closeModal('modal-editar-produto')">close</i>
+        </div>
+        
+        <form id="form-editar-produto" onsubmit="salvarEdicaoProduto(event)">
+            <input type="hidden" id="edit-id">
+            <div class="form-group">
+                <label for="edit-nome">Nome do Produto</label>
+                <input type="text" id="edit-nome" class="form-control" required placeholder="Ex: Camiseta Básica">
+            </div>
+            
+            <div style="display: flex; gap: 16px;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="edit-preco">Preço (R$)</label>
+                    <input type="number" id="edit-preco" class="form-control" step="0.01" min="0.01" required placeholder="0.00">
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 16px;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="edit-estoque">Quantidade em Estoque</label>
+                    <input type="number" id="edit-estoque" class="form-control" min="0" required placeholder="0">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="edit-min_estoque">Estoque Mínimo</label>
+                    <input type="number" id="edit-min_estoque" class="form-control" min="0" required placeholder="0">
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+                <button type="button" class="btn" style="background: #DFE1E6; color: var(--text-main);" onclick="closeModal('modal-editar-produto')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -90,14 +132,15 @@
                 tbody.innerHTML = '';
                 
                 if(products.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Nenhum produto cadastrado.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Nenhum produto cadastrado.</td></tr>';
                     return;
                 }
                 
                 products.forEach(p => {
                     const id = p.id;
                     const name = p.name;
-                    const price = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price);
+                    const price = p.price;
+                    const priceFormatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price);
                     const stock = p.stock;
                     const min_stock = p.min_stock;
                     
@@ -110,16 +153,62 @@
                     row.innerHTML = `
                         <td>#${id}</td>
                         <td style="font-weight: 500;">${name}</td>
-                        <td>${price}</td>
+                        <td>${priceFormatted}</td>
                         <td>${stock}</td>
                         <td>${min_stock}</td>
                         <td>${statusBadge}</td>
+                        <td>
+                            <button class="btn" style="padding: 6px 12px; font-size: 13px; background: var(--primary); color: white; display: inline-flex; align-items: center; gap: 4px;" onclick="openEditModal(${id}, '${name.replace(/'/g, "\\'")}', ${price}, ${stock}, ${min_stock})">
+                                <i class="material-icons-outlined" style="font-size: 16px;">edit</i> Editar
+                            </button>
+                        </td>
                     `;
                     tbody.appendChild(row);
                 });
             }
         } catch (error) {
             console.error("Erro ao carregar produtos", error);
+        }
+    }
+
+    function openEditModal(id, name, price, stock, min_stock) {
+        document.getElementById('edit-id').value = id;
+        document.getElementById('edit-nome').value = name;
+        document.getElementById('edit-preco').value = price;
+        document.getElementById('edit-estoque').value = stock;
+        document.getElementById('edit-min_estoque').value = min_stock;
+        openModal('modal-editar-produto');
+    }
+
+    async function salvarEdicaoProduto(event) {
+        event.preventDefault();
+        
+        const id = document.getElementById('edit-id').value;
+        const payload = {
+            name: document.getElementById('edit-nome').value,
+            price: parseFloat(document.getElementById('edit-preco').value),
+            stock: parseInt(document.getElementById('edit-estoque').value),
+            min_stock: parseInt(document.getElementById('edit-min_estoque').value)
+        };
+        
+        try {
+            const response = await fetch(`/api/products/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if(response.ok) {
+                closeModal('modal-editar-produto');
+                loadProdutos(); // Recarrega a tabela
+            } else {
+                alert("Erro ao editar produto.");
+            }
+        } catch (error) {
+            console.error("Erro", error);
+            alert("Erro de conexão.");
         }
     }
 
