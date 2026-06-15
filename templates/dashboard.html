@@ -51,13 +51,23 @@
 {% endblock %}
 
 {% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; flex-wrap: wrap;">
+    <p style="color: var(--text-muted); margin: 0;">Acompanhe o desempenho do seu negócio em tempo real.</p>
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <label for="filtro-mes" style="font-weight: 500; font-size: 14px; color: var(--text-main);">Filtrar por Mês:</label>
+        <select id="filtro-mes" class="form-control" style="width: auto; min-width: 180px; padding: 6px 12px; height: 38px; border-radius: 8px; border: 1px solid var(--border);" onchange="filtrarDashboard(this.value)">
+            <option value="todos">Todos os Períodos</option>
+        </select>
+    </div>
+</div>
+
 <div class="dashboard-grid">
     <div class="card stat-card">
         <div class="stat-icon bg-blue-1">
             <i class="material-icons-outlined">attach_money</i>
         </div>
         <div class="stat-content">
-            <h3>Faturamento Total</h3>
+            <h3>Faturamento Período</h3>
             <div class="value" id="val-revenue">R$ 0,00</div>
         </div>
     </div>
@@ -67,7 +77,7 @@
             <i class="material-icons-outlined">point_of_sale</i>
         </div>
         <div class="stat-content">
-            <h3>Total de Vendas</h3>
+            <h3>Vendas no Período</h3>
             <div class="value" id="val-sales">0</div>
         </div>
     </div>
@@ -93,7 +103,7 @@
     </div>
 </div>
 
-<div class="card" style="border-left: 4px solid var(--danger);">
+<div class="card" style="border-left: 4px solid var(--danger); margin-bottom: 24px;">
     <h2 style="font-size: 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
         <i class="material-icons-outlined" style="color: var(--danger);">notifications_active</i> 
         Caixa de Notificações: Alerta de Estoque Baixo
@@ -118,34 +128,149 @@
         </table>
     </div>
 </div>
+
+<div class="card">
+    <h2 style="font-size: 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+        <i class="material-icons-outlined" style="color: var(--primary);">analytics</i> 
+        Relatório Comparativo Mensal
+    </h2>
+    <div class="table-container" style="margin-top: 0;">
+        <table class="modern-table">
+            <thead>
+                <tr>
+                    <th>Período (Mês/Ano)</th>
+                    <th>Qtd. Vendas</th>
+                    <th>Faturamento Total</th>
+                    <th>Ticket Médio</th>
+                </tr>
+            </thead>
+            <tbody id="relatorio-mes-table-body">
+                <tr>
+                    <td colspan="4" style="text-align: center;">Carregando relatório...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
+    const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    let allSales = [];
+
     document.addEventListener('DOMContentLoaded', function() {
-        loadDashboardData();
+        initDashboard();
         loadLowStockProducts();
     });
 
-    async function loadDashboardData() {
+    async function initDashboard() {
         try {
-            const response = await fetch('/api/dashboard');
-            if(response.ok) {
-                const data = await response.json();
+            // Primeiro obter totais gerais de produtos e clientes
+            const resDash = await fetch('/api/dashboard');
+            if (resDash.ok) {
+                const dash = await resDash.json();
+                document.getElementById('val-products').innerText = dash.total_products;
+                document.getElementById('val-customers').innerText = dash.total_customers;
+            }
+
+            // Obter todas as vendas para calcular filtros e relatórios mensais
+            const resSales = await fetch('/api/sales');
+            if (resSales.ok) {
+                allSales = await resSales.json();
                 
-                // Formatar moeda
-                const revenueFormatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.revenue);
-                
-                document.getElementById('val-revenue').innerText = revenueFormatted;
-                document.getElementById('val-sales').innerText = data.total_sales;
-                document.getElementById('val-products').innerText = data.total_products;
-                document.getElementById('val-customers').innerText = data.total_customers;
-            } else {
-                console.error("Erro ao carregar dashboard", response.status);
+                populateMonthFilter();
+                updateDashboardStats('todos');
+                renderMonthlyReport();
             }
         } catch (error) {
-            console.error("Erro de conexão", error);
+            console.error("Erro inicializando dashboard", error);
         }
+    }
+
+    function populateMonthFilter() {
+        const select = document.getElementById('filtro-mes');
+        select.innerHTML = '<option value="todos">Todos os Períodos</option>';
+
+        const mesesSet = new Set();
+        allSales.forEach(s => {
+            if (s.sale_date) {
+                const dateKey = s.sale_date.substring(0, 7); // YYYY-MM
+                mesesSet.add(dateKey);
+            }
+        });
+
+        // Ordenar os meses decrescente (mais recentes primeiro)
+        const mesesOrdenados = Array.from(mesesSet).sort().reverse();
+
+        mesesOrdenados.forEach(ym => {
+            const [year, month] = ym.split('-');
+            const mesNome = mesesNomes[parseInt(month) - 1];
+            select.innerHTML += `<option value="${ym}">${mesNome} / ${year}</option>`;
+        });
+    }
+
+    function filtrarDashboard(val) {
+        updateDashboardStats(val);
+    }
+
+    function updateDashboardStats(periodo) {
+        let filteredSales = allSales;
+        if (periodo !== 'todos') {
+            filteredSales = allSales.filter(s => s.sale_date && s.sale_date.startsWith(periodo));
+        }
+
+        let revenue = 0;
+        filteredSales.forEach(s => {
+            revenue += s.total;
+        });
+
+        const revenueFormatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(revenue);
+        document.getElementById('val-revenue').innerText = revenueFormatted;
+        document.getElementById('val-sales').innerText = filteredSales.length;
+    }
+
+    function renderMonthlyReport() {
+        const tbody = document.getElementById('relatorio-mes-table-body');
+        tbody.innerHTML = '';
+
+        // Agrupar vendas por YYYY-MM
+        const grupos = {};
+        allSales.forEach(s => {
+            if (s.sale_date) {
+                const key = s.sale_date.substring(0, 7);
+                if (!grupos[key]) {
+                    grupos[key] = { count: 0, revenue: 0 };
+                }
+                grupos[key].count++;
+                grupos[key].revenue += s.total;
+            }
+        });
+
+        const keysSorted = Object.keys(grupos).sort().reverse();
+
+        if (keysSorted.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Nenhuma venda registrada para gerar relatórios.</td></tr>';
+            return;
+        }
+
+        keysSorted.forEach(key => {
+            const [year, month] = key.split('-');
+            const mesNome = mesesNomes[parseInt(month) - 1];
+            const dataGrupo = grupos[key];
+            const faturamento = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(dataGrupo.revenue);
+            const ticketMedio = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(dataGrupo.count > 0 ? (dataGrupo.revenue / dataGrupo.count) : 0);
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td style="font-weight: 500;">${mesNome} / ${year}</td>
+                <td>${dataGrupo.count}</td>
+                <td style="font-weight: bold; color: var(--success);">${faturamento}</td>
+                <td>${ticketMedio}</td>
+            `;
+            tbody.appendChild(row);
+        });
     }
 
     async function loadLowStockProducts() {
@@ -188,5 +313,6 @@
             document.getElementById('low-stock-table-body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger);">Erro de conexão com o servidor.</td></tr>';
         }
     }
+
 </script>
 {% endblock %}

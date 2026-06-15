@@ -3,6 +3,30 @@
 {% block title %}Vendas{% endblock %}
 {% block page_title %}Histórico e Registro de Vendas{% endblock %}
 
+{% block extra_head %}
+<style>
+    .tab-btn {
+        padding: 8px 16px;
+        border: none;
+        background: none;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+    .tab-btn:hover {
+        background: rgba(0, 0, 0, 0.05);
+        color: var(--text-main);
+    }
+    .tab-btn.active {
+        color: var(--primary);
+        background: rgba(0, 82, 204, 0.08);
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; flex-wrap: wrap;">
     <p style="color: var(--text-muted); margin: 0;">Registre novas vendas e acompanhe o histórico.</p>
@@ -17,8 +41,14 @@
 </div>
 
 <div class="card">
+    <!-- Abas Mensais -->
+    <div id="vendas-tabs" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+        <button class="tab-btn active" onclick="filtrarAbasVendas('todos', this)">Todos os Períodos</button>
+    </div>
+
     <div class="table-container" style="margin-top: 0;">
         <table class="modern-table">
+
             <thead>
                 <tr>
                     <th>ID Venda</th>
@@ -98,6 +128,9 @@
     let cacheProdutos = {}; // Armazena objetos de produtos completos por ID
     let customersMap = {};
     let productsMap = {};
+    let allSalesList = [];
+    const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const mesesNomesCompletos = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
     document.addEventListener('DOMContentLoaded', async function() {
         await initMaps();
@@ -128,57 +161,99 @@
     async function loadVendas() {
         try {
             const response = await fetch('/api/sales');
-            const tbody = document.getElementById('vendas-table-body');
-            
             if(response.ok) {
-                const sales = await response.json();
-                tbody.innerHTML = '';
-                
-                if(sales.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Nenhuma venda registrada.</td></tr>';
-                    return;
-                }
-                
-                sales.reverse().forEach(s => {
-                    const id = s.id;
-                    const customer_id = s.customer_id;
-                    const product_id = s.product_id;
-                    const quantity = s.quantity;
-                    const total = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(s.total);
-                    const source = s.source || 'Presencial';
-                    
-                    const clientName = customer_id ? (customersMap[customer_id] || `Cliente #${customer_id}`) : 'Consumidor Online';
-                    const productName = productsMap[product_id] || `Produto #${product_id}`;
-                    
-                    const date = new Date(s.sale_date).toLocaleString('pt-BR');
-                    
-                    let sourceBadge = `<span class="badge" style="background: #E2F5EC; color: #008543; font-weight: 600; font-size: 11px;">Presencial</span>`;
-                    if (source === "Mercado Livre") {
-                        sourceBadge = `<span class="badge" style="background: #FFF1C2; color: #855700; font-weight: 600; font-size: 11px;">Mercado Livre</span>`;
-                    }
-
-                    const pdfButton = `<a href="/api/sales/${id}/pdf" class="btn" style="padding: 4px 10px; font-size: 12px; background: #F3F4F6; color: #374151; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #E5E7EB; border-radius: 6px; font-weight: 500;" download>
-                        <i class="material-icons-outlined" style="font-size: 16px;">picture_as_pdf</i> PDF
-                    </a>`;
-                    
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>#${id}</td>
-                        <td>${date}</td>
-                        <td style="font-weight: 500;">${clientName}</td>
-                        <td style="font-weight: 500;">${productName}</td>
-                        <td>${quantity}</td>
-                        <td style="font-weight: bold; color: var(--success);">${total}</td>
-                        <td>${sourceBadge}</td>
-                        <td>${pdfButton}</td>
-                    `;
-                    tbody.appendChild(row);
-                });
+                allSalesList = await response.json();
+                buildVendasTabs();
+                renderVendasTable('todos');
             }
         } catch (error) {
             console.error("Erro ao carregar vendas", error);
         }
     }
+
+    function buildVendasTabs() {
+        const tabsContainer = document.getElementById('vendas-tabs');
+        tabsContainer.innerHTML = '<button class="tab-btn active" onclick="filtrarAbasVendas(\'todos\', this)">Todos os Períodos</button>';
+
+        const mesesSet = new Set();
+        allSalesList.forEach(s => {
+            if (s.sale_date) {
+                const dateKey = s.sale_date.substring(0, 7); // YYYY-MM
+                mesesSet.add(dateKey);
+            }
+        });
+
+        // Ordenar os meses decrescente (mais recentes primeiro)
+        const mesesOrdenados = Array.from(mesesSet).sort().reverse();
+
+        mesesOrdenados.forEach(ym => {
+            const [year, month] = ym.split('-');
+            const mesNome = mesesNomes[parseInt(month) - 1];
+            tabsContainer.innerHTML += `<button class="tab-btn" onclick="filtrarAbasVendas('${ym}', this)">${mesNome}/${year}</button>`;
+        });
+    }
+
+    function filtrarAbasVendas(periodo, buttonElement) {
+        // Alternar classe ativa nos botões
+        const buttons = document.querySelectorAll('#vendas-tabs .tab-btn');
+        buttons.forEach(btn => btn.classList.remove('active'));
+        buttonElement.classList.add('active');
+
+        renderVendasTable(periodo);
+    }
+
+    function renderVendasTable(periodo) {
+        const tbody = document.getElementById('vendas-table-body');
+        tbody.innerHTML = '';
+
+        let filteredSales = allSalesList;
+        if (periodo !== 'todos') {
+            filteredSales = allSalesList.filter(s => s.sale_date && s.sale_date.startsWith(periodo));
+        }
+
+        if(filteredSales.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Nenhuma venda registrada neste período.</td></tr>';
+            return;
+        }
+
+        // Reverso para mostrar as mais recentes primeiro
+        [...filteredSales].reverse().forEach(s => {
+            const id = s.id;
+            const customer_id = s.customer_id;
+            const product_id = s.product_id;
+            const quantity = s.quantity;
+            const total = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(s.total);
+            const source = s.source || 'Presencial';
+            
+            const clientName = customer_id ? (customersMap[customer_id] || `Cliente #${customer_id}`) : 'Consumidor Online';
+            const productName = productsMap[product_id] || `Produto #${product_id}`;
+            
+            const date = new Date(s.sale_date).toLocaleString('pt-BR');
+            
+            let sourceBadge = `<span class="badge" style="background: #E2F5EC; color: #008543; font-weight: 600; font-size: 11px;">Presencial</span>`;
+            if (source === "Mercado Livre") {
+                sourceBadge = `<span class="badge" style="background: #FFF1C2; color: #855700; font-weight: 600; font-size: 11px;">Mercado Livre</span>`;
+            }
+
+            const pdfButton = `<a href="/api/sales/${id}/pdf" class="btn" style="padding: 4px 10px; font-size: 12px; background: #F3F4F6; color: #374151; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #E5E7EB; border-radius: 6px; font-weight: 500;" download>
+                <i class="material-icons-outlined" style="font-size: 16px;">picture_as_pdf</i> PDF
+            </a>`;
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>#${id}</td>
+                <td>${date}</td>
+                <td style="font-weight: 500;">${clientName}</td>
+                <td style="font-weight: 500;">${productName}</td>
+                <td>${quantity}</td>
+                <td style="font-weight: bold; color: var(--success);">${total}</td>
+                <td>${sourceBadge}</td>
+                <td>${pdfButton}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
 
     async function abrirModalVenda() {
         document.getElementById('venda-alert').style.display = 'none';
