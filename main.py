@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, Header
 from pydantic import BaseModel
 import sqlite3
 from datetime import datetime
@@ -21,6 +21,15 @@ def get_connection():
 def init_db():
     with get_connection() as conn:
         cursor = conn.cursor()
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                password TEXT NOT NULL,
+                store_name TEXT NOT NULL
+            )
+        """)
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS products (
@@ -69,6 +78,13 @@ def init_db():
         if 'invoice_key' not in columns:
             cursor.execute("ALTER TABLE sales ADD COLUMN invoice_key TEXT")
 
+        # Migração do store_id para isolamento multi-loja
+        for table in ['products', 'customers', 'sales']:
+            cursor.execute(f"PRAGMA table_info({table})")
+            cols = [col[1] for col in cursor.fetchall()]
+            if 'store_id' not in cols:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN store_id INTEGER DEFAULT 1")
+
 
 init_db()
 
@@ -84,6 +100,43 @@ def generate_ean13():
 
 def generate_invoice_key():
     return "".join(str(random.randint(0, 9)) for _ in range(44))
+
+
+class UserRegister(BaseModel):
+    username: str
+    password: str
+    store_name: str
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/auth/register")
+def register_user(user: UserRegister):
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "INSERT INTO users (username, password, store_name) VALUES (?, ?, ?)",
+                (user.username, user.password, user.store_name)
+            )
+            user_id = cursor.lastrowid
+        except sqlite3.IntegrityError:
+            raise HTTPException(status_code=400, detail="Usuário já cadastrado.")
+    return {"message": "Usuário registrado com sucesso", "store_id": user_id, "store_name": user.store_name}
+
+
+@app.post("/auth/login")
+def login_user(user: UserLogin):
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, store_name, password FROM users WHERE username = ?", (user.username,))
+        row = cursor.fetchone()
+        if not row or row[2] != user.password:
+            raise HTTPException(status_code=401, detail="Usuário ou senha incorretos.")
+    return {"message": "Sucesso", "store_id": row[0], "store_name": row[1]}
 
 
 class Product(BaseModel):
@@ -108,7 +161,7 @@ class Sale(BaseModel):
 
 
 @app.post("/products")
-def create_product(product: Product):
+def create_product(product: Product, x_store_id: int = Header(1, alias="X-Store-ID")):
     barcode = product.barcode
     if not barcode or not barcode.strip():
         barcode = generate_ean13()
@@ -117,13 +170,14 @@ def create_product(product: Product):
         cursor = conn.cursor()
 
         cursor.execute(
-            "INSERT INTO products (name, price, stock, min_stock, barcode) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO products (name, price, stock, min_stock, barcode, store_id) VALUES (?, ?, ?, ?, ?, ?)",
             (
                 product.name,
                 product.price,
                 product.stock,
                 product.min_stock,
-                barcode
+                barcode,
+                x_store_id
             )
         )
 
@@ -131,7 +185,7 @@ def create_product(product: Product):
 
 
 @app.put("/products/{product_id}")
-def update_product(product_id: int, product: Product):
+def update_product(product_id: int, product: Product, x_store_id: int = Header(1, alias="X-Store-ID")):
     barcode = product.barcode
     if not barcode or not barcode.strip():
         barcode = generate_ean13()
@@ -139,18 +193,18 @@ def update_product(product_id: int, product: Product):
     with get_connection() as conn:
         cursor = conn.cursor()
 
-        cursor.execute("SELECT id FROM products WHERE id = ?", (product_id,))
+        cursor.execute("SELECT id FROM products WHERE id = ? AND store_id = ?", (product_id, x_store_id))
         if not cursor.fetchone():
             raise HTTPException(
                 status_code=404,
-                detail="Produto não encontrado"
+                detail="Produto não encontrado nesta loja"
             )
 
         cursor.execute(
             """
             UPDATE products 
             SET name = ?, price = ?, stock = ?, min_stock = ?, barcode = ?
-            WHERE id = ?
+            WHERE id = ? AND store_id = ?
             """,
             (
                 product.name,
@@ -158,7 +212,8 @@ def update_product(product_id: int, product: Product):
                 product.stock,
                 product.min_stock,
                 barcode,
-                product_id
+                product_id,
+                x_store_id
             )
         )
 
@@ -166,11 +221,11 @@ def update_product(product_id: int, product: Product):
 
 
 @app.get("/products")
-def list_products():
+def list_products(x_store_id: int = Header(1, alias="X-Store-ID")):
     with get_connection() as conn:
         cursor = conn.cursor()
 
-        cursor.execute("SELECT id, name, price, stock, min_stock, barcode FROM products")
+        cursor.execute("SELECT id, name, price, stock, min_stock, barcode FROM products WHERE store_id = ?", (x_store_id,))
         data = cursor.fetchall()
 
     return [
@@ -187,12 +242,13 @@ def list_products():
 
 
 @app.get("/products/low-stock")
-def low_stock_products():
+def low_stock_products(x_store_id: int = Header(1, alias="X-Store-ID")):
     with get_connection() as conn:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id, name, price, stock, min_stock, barcode FROM products WHERE stock <= min_stock"
+            "SELECT id, name, price, stock, min_stock, barcode FROM products WHERE stock <= min_stock AND store_id = ?",
+            (x_store_id,)
         )
 
         data = cursor.fetchall()
@@ -210,33 +266,38 @@ def low_stock_products():
     ]
 
 
+
 @app.post("/customers")
-def create_customer(customer: Customer):
+def create_customer(customer: Customer, x_store_id: int = Header(1, alias="X-Store-ID")):
     with get_connection() as conn:
         cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            INSERT INTO customers (name, email, phone, cpf)
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                customer.name,
-                customer.email,
-                customer.phone,
-                customer.cpf
+        try:
+            cursor.execute(
+                """
+                INSERT INTO customers (name, email, phone, cpf, store_id)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    customer.name,
+                    customer.email,
+                    customer.phone,
+                    customer.cpf,
+                    x_store_id
+                )
             )
-        )
+        except sqlite3.IntegrityError:
+            raise HTTPException(status_code=400, detail="CPF já cadastrado.")
 
     return {"message": "Cliente cadastrado com sucesso"}
 
 
 @app.get("/customers")
-def list_customers():
+def list_customers(x_store_id: int = Header(1, alias="X-Store-ID")):
     with get_connection() as conn:
         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM customers")
+        cursor.execute("SELECT id, name, email, phone, cpf FROM customers WHERE store_id = ?", (x_store_id,))
         data = cursor.fetchall()
 
     return [
@@ -252,13 +313,13 @@ def list_customers():
 
 
 @app.post("/sales")
-def register_sale(sale: Sale):
+def register_sale(sale: Sale, x_store_id: int = Header(1, alias="X-Store-ID")):
     with get_connection() as conn:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT price, stock FROM products WHERE id = ?",
-            (sale.product_id,)
+            "SELECT price, stock FROM products WHERE id = ? AND store_id = ?",
+            (sale.product_id, x_store_id)
         )
 
         product = cursor.fetchone()
@@ -266,7 +327,7 @@ def register_sale(sale: Sale):
         if not product:
             raise HTTPException(
                 status_code=404,
-                detail="Produto não encontrado"
+                detail="Produto não encontrado nesta loja"
             )
 
         price, stock = product
@@ -281,16 +342,17 @@ def register_sale(sale: Sale):
         new_stock = stock - sale.quantity
 
         cursor.execute(
-            "UPDATE products SET stock = ? WHERE id = ?",
-            (new_stock, sale.product_id)
+            "UPDATE products SET stock = ? WHERE id = ? AND store_id = ?",
+            (new_stock, sale.product_id, x_store_id)
         )
+
 
         invoice_key = generate_invoice_key()
         cursor.execute(
             """
             INSERT INTO sales
-            (customer_id, product_id, quantity, total, sale_date, source, invoice_key)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (customer_id, product_id, quantity, total, sale_date, source, invoice_key, store_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 sale.customer_id,
@@ -299,7 +361,8 @@ def register_sale(sale: Sale):
                 total,
                 datetime.now().isoformat(),
                 "Presencial",
-                invoice_key
+                invoice_key,
+                x_store_id
             )
         )
 
@@ -315,13 +378,13 @@ class MLSale(BaseModel):
 
 
 @app.post("/mercadolivre/webhook")
-def mercadolivre_webhook(ml_sale: MLSale):
+def mercadolivre_webhook(ml_sale: MLSale, x_store_id: int = Header(1, alias="X-Store-ID")):
     with get_connection() as conn:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT price, stock FROM products WHERE id = ?",
-            (ml_sale.product_id,)
+            "SELECT price, stock FROM products WHERE id = ? AND store_id = ?",
+            (ml_sale.product_id, x_store_id)
         )
 
         product = cursor.fetchone()
@@ -329,7 +392,7 @@ def mercadolivre_webhook(ml_sale: MLSale):
         if not product:
             raise HTTPException(
                 status_code=404,
-                detail="Produto não encontrado"
+                detail="Produto não encontrado nesta loja"
             )
 
         price, stock = product
@@ -344,16 +407,16 @@ def mercadolivre_webhook(ml_sale: MLSale):
         new_stock = stock - ml_sale.quantity
 
         cursor.execute(
-            "UPDATE products SET stock = ? WHERE id = ?",
-            (new_stock, ml_sale.product_id)
+            "UPDATE products SET stock = ? WHERE id = ? AND store_id = ?",
+            (new_stock, ml_sale.product_id, x_store_id)
         )
 
         invoice_key = generate_invoice_key()
         cursor.execute(
             """
             INSERT INTO sales
-            (customer_id, product_id, quantity, total, sale_date, source, invoice_key)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (customer_id, product_id, quantity, total, sale_date, source, invoice_key, store_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 None,
@@ -362,7 +425,8 @@ def mercadolivre_webhook(ml_sale: MLSale):
                 total,
                 datetime.now().isoformat(),
                 "Mercado Livre",
-                invoice_key
+                invoice_key,
+                x_store_id
             )
         )
 
@@ -373,11 +437,11 @@ def mercadolivre_webhook(ml_sale: MLSale):
 
 
 @app.get("/sales")
-def list_sales():
+def list_sales(x_store_id: int = Header(1, alias="X-Store-ID")):
     with get_connection() as conn:
         cursor = conn.cursor()
 
-        cursor.execute("SELECT id, customer_id, product_id, quantity, total, sale_date, source, invoice_key FROM sales")
+        cursor.execute("SELECT id, customer_id, product_id, quantity, total, sale_date, source, invoice_key FROM sales WHERE store_id = ?", (x_store_id,))
         data = cursor.fetchall()
 
     return [
@@ -396,7 +460,7 @@ def list_sales():
 
 
 @app.get("/sales/{sale_id}/pdf")
-def get_sale_pdf(sale_id: int):
+def get_sale_pdf(sale_id: int, x_store_id: int = Header(1, alias="X-Store-ID")):
     with get_connection() as conn:
         cursor = conn.cursor()
 
@@ -405,8 +469,8 @@ def get_sale_pdf(sale_id: int):
                    p.name, p.price, p.barcode
             FROM sales s
             JOIN products p ON s.product_id = p.id
-            WHERE s.id = ?
-        """, (sale_id,))
+            WHERE s.id = ? AND s.store_id = ?
+        """, (sale_id, x_store_id))
 
         sale = cursor.fetchone()
         if not sale:
@@ -420,7 +484,7 @@ def get_sale_pdf(sale_id: int):
         cursor.execute("SELECT customer_id FROM sales WHERE id = ?", (sale_id,))
         cid = cursor.fetchone()[0]
         if cid:
-            cursor.execute("SELECT name, cpf FROM customers WHERE id = ?", (cid,))
+            cursor.execute("SELECT name, cpf FROM customers WHERE id = ? AND store_id = ?", (cid, x_store_id))
             cust = cursor.fetchone()
             if cust:
                 customer_name, customer_cpf = cust
@@ -592,20 +656,20 @@ def get_sale_pdf(sale_id: int):
 
 
 @app.get("/dashboard")
-def dashboard():
+def dashboard(x_store_id: int = Header(1, alias="X-Store-ID")):
     with get_connection() as conn:
         cursor = conn.cursor()
 
-        cursor.execute("SELECT COUNT(*) FROM products")
+        cursor.execute("SELECT COUNT(*) FROM products WHERE store_id = ?", (x_store_id,))
         total_products = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM customers")
+        cursor.execute("SELECT COUNT(*) FROM customers WHERE store_id = ?", (x_store_id,))
         total_customers = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM sales")
+        cursor.execute("SELECT COUNT(*) FROM sales WHERE store_id = ?", (x_store_id,))
         total_sales = cursor.fetchone()[0]
 
-        cursor.execute("SELECT SUM(total) FROM sales")
+        cursor.execute("SELECT SUM(total) FROM sales WHERE store_id = ?", (x_store_id,))
         revenue = cursor.fetchone()[0] or 0
 
     return {

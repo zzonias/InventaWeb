@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar Loja - InventaWeb</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #0052CC;
+            --primary-hover: #0043A4;
+            --background: #F4F5F7;
+            --card-bg: #FFFFFF;
+            --text-main: #172B4D;
+            --text-muted: #5E6C84;
+            --border: #DFE1E6;
+            --danger: #FF5630;
+            --success: #36B37E;
+            --radius-lg: 12px;
+        }
+
+        /* Dark mode compatibility */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --background: #0f172a;
+                --card-bg: #1e293b;
+                --text-main: #f8fafc;
+                --text-muted: #94a3b8;
+                --border: #334155;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--background) 0%, rgba(0, 82, 204, 0.08) 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 440px;
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            padding: 40px 32px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .auth-logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 64px;
+            height: 64px;
+            background: var(--primary);
+            color: white;
+            font-size: 24px;
+            font-weight: 700;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 16px rgba(0, 82, 204, 0.2);
+        }
+
+        .auth-header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+
+        .auth-header p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 20px;
+        }
+
+        .form-control {
+            width: 100%;
+            height: 44px;
+            padding: 10px 12px 10px 40px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.15);
+        }
+
+        .btn-submit {
+            width: 100%;
+            height: 44px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(0, 82, 204, 0.15);
+        }
+
+        .btn-submit:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-submit:active {
+            transform: scale(0.98);
+        }
+
+        .alert-box {
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(255, 86, 48, 0.1);
+            color: var(--danger);
+            font-size: 13px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: left;
+            border: 1px solid rgba(255, 86, 48, 0.2);
+        }
+
+        .auth-footer {
+            margin-top: 28px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .auth-footer a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .auth-footer a:hover {
+            color: var(--primary-hover);
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-logo">IW</div>
+        <div class="auth-header">
+            <h1>Cadastre sua Loja</h1>
+            <p>Crie sua conta para obter um painel exclusivo.</p>
+        </div>
+
+        <div class="alert-box" id="error-alert"></div>
+
+        <form id="register-form" onsubmit="fazerCadastro(event)">
+            <div class="form-group">
+                <label for="store_name">Nome da Loja</label>
+                <div class="input-wrapper">
+                    <i class="material-icons-outlined">storefront</i>
+                    <input type="text" id="store_name" class="form-control" required placeholder="Ex: Bazar do Bairro" autofocus autocomplete="off">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="username">Nome de Usuário</label>
+                <div class="input-wrapper">
+                    <i class="material-icons-outlined">person</i>
+                    <input type="text" id="username" class="form-control" required placeholder="Escolha um usuário de login" autocomplete="username">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Senha</label>
+                <div class="input-wrapper">
+                    <i class="material-icons-outlined">lock</i>
+                    <input type="password" id="password" class="form-control" required placeholder="Crie uma senha forte" autocomplete="new-password">
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit" id="btn-cadastrar">Criar Loja e Acessar</button>
+        </form>
+
+        <div class="auth-footer">
+            Já tem uma conta? <a href="/login">Entre aqui</a>
+        </div>
+    </div>
+
+    <script>
+        async function fazerCadastro(event) {
+            event.preventDefault();
+            const btn = document.getElementById('btn-cadastrar');
+            const alertBox = document.getElementById('error-alert');
+            
+            btn.disabled = true;
+            btn.innerText = "Criando Conta...";
+            alertBox.style.display = 'none';
+
+            const payload = {
+                store_name: document.getElementById('store_name').value.trim(),
+                username: document.getElementById('username').value.trim(),
+                password: document.getElementById('password').value
+            };
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    // O proxy do Flask já iniciou a sessão
+                    window.location.href = '/';
+                } else {
+                    const err = await response.json();
+                    alertBox.innerText = err.detail || "Erro ao registrar usuário. Verifique se o nome já existe.";
+                    alertBox.style.display = 'block';
+                }
+            } catch (error) {
+                console.error(error);
+                alertBox.innerText = "Erro ao conectar com o servidor.";
+                alertBox.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Criar Loja e Acessar";
+            }
+        }
+    </script>
+</body>
+</html>
