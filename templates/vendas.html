@@ -4,11 +4,16 @@
 {% block page_title %}Histórico e Registro de Vendas{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-    <p style="color: var(--text-muted);">Registre novas vendas e acompanhe o histórico.</p>
-    <button class="btn btn-primary" onclick="abrirModalVenda()">
-        <i class="material-icons-outlined">add_shopping_cart</i> Nova Venda
-    </button>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; flex-wrap: wrap;">
+    <p style="color: var(--text-muted); margin: 0;">Registre novas vendas e acompanhe o histórico.</p>
+    <div style="display: flex; gap: 12px;">
+        <button class="btn btn-primary" onclick="abrirModalVenda()">
+            <i class="material-icons-outlined">add_shopping_cart</i> Nova Venda
+        </button>
+        <button class="btn" style="background: #FFE600; color: #2D3277; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; border: 1px solid #D9C300;" onclick="simularVendaMercadoLivre()">
+            <span class="material-icons-outlined" style="font-size: 18px;">cloud_sync</span> Simular Venda ML
+        </button>
+    </div>
 </div>
 
 <div class="card">
@@ -18,20 +23,23 @@
                 <tr>
                     <th>ID Venda</th>
                     <th>Data</th>
-                    <th>Cliente (ID)</th>
-                    <th>Produto (ID)</th>
+                    <th>Cliente</th>
+                    <th>Produto</th>
                     <th>Qtd.</th>
                     <th>Total (R$)</th>
+                    <th>Origem</th>
+                    <th>Nota Fiscal</th>
                 </tr>
             </thead>
             <tbody id="vendas-table-body">
                 <tr>
-                    <td colspan="6" style="text-align: center;">Carregando vendas...</td>
+                    <td colspan="8" style="text-align: center;">Carregando vendas...</td>
                 </tr>
             </tbody>
         </table>
     </div>
 </div>
+
 
 <!-- Modal Nova Venda -->
 <div class="modal-overlay" id="modal-venda">
@@ -49,6 +57,14 @@
                 </select>
             </div>
             
+            <div class="form-group">
+                <label for="busca_barcode">Bipar / Digitar Código de Barras</label>
+                <div style="position: relative;">
+                    <input type="text" id="busca_barcode" class="form-control" placeholder="Bipe o código de barras ou digite..." oninput="buscarPorBarcode(this.value)">
+                    <span class="material-icons-outlined" style="position: absolute; right: 12px; top: 12px; color: var(--text-muted); font-size: 20px;">qr_code_scanner</span>
+                </div>
+            </div>
+            
             <div style="display: flex; gap: 16px;">
                 <div class="form-group" style="flex: 2;">
                     <label for="produto_id">Produto</label>
@@ -62,6 +78,7 @@
                     <input type="number" id="quantidade" class="form-control" min="1" value="1" required oninput="atualizarTotalMock()">
                 </div>
             </div>
+
             
             <!-- Alert message for Insufficient Stock or other errors -->
             <div id="venda-alert" style="display: none; padding: 12px; border-radius: 8px; margin-bottom: 16px; background: rgba(255, 86, 48, 0.1); color: var(--danger); font-size: 14px;">
@@ -78,11 +95,35 @@
 
 {% block scripts %}
 <script>
-    let cacheProdutos = {}; // Para calcular total rapidamente no front
+    let cacheProdutos = {}; // Armazena objetos de produtos completos por ID
+    let customersMap = {};
+    let productsMap = {};
 
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async function() {
+        await initMaps();
         loadVendas();
     });
+
+    async function initMaps() {
+        // Carrega mapas auxiliares para mostrar nomes em vez de IDs
+        try {
+            const resC = await fetch('/api/customers');
+            if (resC.ok) {
+                const customers = await resC.json();
+                customers.forEach(c => { customersMap[c.id] = c.name; });
+            }
+            const resP = await fetch('/api/products');
+            if (resP.ok) {
+                const products = await resP.json();
+                products.forEach(p => { 
+                    productsMap[p.id] = p.name;
+                    cacheProdutos[p.id] = p;
+                });
+            }
+        } catch (e) {
+            console.error("Erro inicializando mapas", e);
+        }
+    }
 
     async function loadVendas() {
         try {
@@ -94,29 +135,42 @@
                 tbody.innerHTML = '';
                 
                 if(sales.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Nenhuma venda registrada.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Nenhuma venda registrada.</td></tr>';
                     return;
                 }
                 
-                // Reverso para mostrar as mais recentes primeiro (opcional)
                 sales.reverse().forEach(s => {
                     const id = s.id;
                     const customer_id = s.customer_id;
                     const product_id = s.product_id;
                     const quantity = s.quantity;
                     const total = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(s.total);
+                    const source = s.source || 'Presencial';
                     
-                    // Formatando a data ISO
+                    const clientName = customer_id ? (customersMap[customer_id] || `Cliente #${customer_id}`) : 'Consumidor Online';
+                    const productName = productsMap[product_id] || `Produto #${product_id}`;
+                    
                     const date = new Date(s.sale_date).toLocaleString('pt-BR');
+                    
+                    let sourceBadge = `<span class="badge" style="background: #E2F5EC; color: #008543; font-weight: 600; font-size: 11px;">Presencial</span>`;
+                    if (source === "Mercado Livre") {
+                        sourceBadge = `<span class="badge" style="background: #FFF1C2; color: #855700; font-weight: 600; font-size: 11px;">Mercado Livre</span>`;
+                    }
+
+                    const pdfButton = `<a href="/api/sales/${id}/pdf" class="btn" style="padding: 4px 10px; font-size: 12px; background: #F3F4F6; color: #374151; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #E5E7EB; border-radius: 6px; font-weight: 500;" download>
+                        <i class="material-icons-outlined" style="font-size: 16px;">picture_as_pdf</i> PDF
+                    </a>`;
                     
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td>#${id}</td>
                         <td>${date}</td>
-                        <td>#${customer_id}</td>
-                        <td>#${product_id}</td>
+                        <td style="font-weight: 500;">${clientName}</td>
+                        <td style="font-weight: 500;">${productName}</td>
                         <td>${quantity}</td>
                         <td style="font-weight: bold; color: var(--success);">${total}</td>
+                        <td>${sourceBadge}</td>
+                        <td>${pdfButton}</td>
                     `;
                     tbody.appendChild(row);
                 });
@@ -128,8 +182,9 @@
 
     async function abrirModalVenda() {
         document.getElementById('venda-alert').style.display = 'none';
+        document.getElementById('busca_barcode').value = '';
         
-        // Carregar clientes
+        // Atualizar lista de clientes no dropdown
         try {
             const resC = await fetch('/api/customers');
             const selectC = document.getElementById('cliente_id');
@@ -142,18 +197,17 @@
             }
         } catch(e) { console.error("Erro carregando clientes"); }
 
-        // Carregar produtos
+        // Atualizar lista de produtos no dropdown
         try {
             const resP = await fetch('/api/products');
             const selectP = document.getElementById('produto_id');
             selectP.innerHTML = '<option value="">Selecione um produto...</option>';
-            cacheProdutos = {}; // Limpar cache
             
             if(resP.ok) {
                 const products = await resP.json();
                 products.forEach(p => {
-                    cacheProdutos[p.id] = p.price; // armazena preço
-                    // Mostrar estoque no label ajuda na UX
+                    cacheProdutos[p.id] = p;
+                    productsMap[p.id] = p.name;
                     selectP.innerHTML += `<option value="${p.id}">${p.name} (R$ ${p.price.toFixed(2)} | Estoque: ${p.stock})</option>`;
                 });
             }
@@ -162,11 +216,31 @@
         openModal('modal-venda');
     }
 
+    function buscarPorBarcode(val) {
+        if (!val) return;
+        
+        // Busca produto que tenha o mesmo código de barras
+        const cleaned = val.trim();
+        const foundProduct = Object.values(cacheProdutos).find(p => p.barcode === cleaned);
+        
+        if (foundProduct) {
+            document.getElementById('produto_id').value = foundProduct.id;
+            document.getElementById('busca_barcode').value = ''; // limpa busca
+            
+            // Efeito visual temporário de sucesso no campo produto
+            const selectP = document.getElementById('produto_id');
+            selectP.style.borderColor = 'var(--success)';
+            setTimeout(() => { selectP.style.borderColor = ''; }, 1000);
+            
+            // Foca na quantidade
+            document.getElementById('quantidade').focus();
+            atualizarTotalMock();
+        }
+    }
+
     function atualizarTotalMock() {
-        // Apenas visual, o cálculo real é no back-end
         const prodId = document.getElementById('produto_id').value;
         const qty = parseInt(document.getElementById('quantidade').value) || 1;
-        // console.log("Total Previsto:", cacheProdutos[prodId] * qty);
     }
 
     async function salvarVenda(event) {
@@ -206,5 +280,50 @@
             btn.disabled = false;
         }
     }
+
+    async function simularVendaMercadoLivre() {
+        // Obter lista de produtos para simular com um produto aleatório
+        try {
+            const res = await fetch('/api/products');
+            if (!res.ok) {
+                alert("Erro ao buscar produtos para simulação.");
+                return;
+            }
+            const products = await res.json();
+            if (products.length === 0) {
+                alert("Cadastre pelo menos um produto para poder simular vendas!");
+                return;
+            }
+            
+            // Seleciona um produto aleatório
+            const randomProduct = products[Math.floor(Math.random() * products.length)];
+            const quantity = Math.floor(Math.random() * 2) + 1; // 1 ou 2 unidades
+            
+            const payload = {
+                product_id: randomProduct.id,
+                quantity: quantity
+            };
+            
+            const mlRes = await fetch('/api/mercadolivre/webhook', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (mlRes.ok) {
+                const resData = await mlRes.json();
+                alert(`[Simulação ML] Venda online do produto "${randomProduct.name}" (${quantity}x) sincronizada automaticamente!`);
+                await initMaps(); // atualiza caches
+                loadVendas();
+            } else {
+                const err = await mlRes.json();
+                alert(`Erro na simulação do Mercado Livre: ${err.detail}`);
+            }
+        } catch(e) {
+            console.error(e);
+            alert("Falha ao simular venda do Mercado Livre.");
+        }
+    }
+
 </script>
 {% endblock %}

@@ -42,6 +42,13 @@ def api_proxy(subpath):
         elif request.method == 'DELETE':
             response = requests.delete(url)
             
+        # Verificar se a resposta é um PDF (binário)
+        if 'application/pdf' in response.headers.get('Content-Type', ''):
+            return response.content, response.status_code, {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': response.headers.get('Content-Disposition', '')
+            }
+            
         # Repassando a resposta de volta ao Front-End JavaScript
         return jsonify(response.json()), response.status_code
     

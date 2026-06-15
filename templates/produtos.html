@@ -21,13 +21,14 @@
                     <th>Preço (R$)</th>
                     <th>Estoque</th>
                     <th>Estoque Mínimo</th>
+                    <th>Código de Barras</th>
                     <th>Status</th>
                     <th>Ações</th>
                 </tr>
             </thead>
             <tbody id="produtos-table-body">
                 <tr>
-                    <td colspan="7" style="text-align: center;">Carregando produtos...</td>
+                    <td colspan="8" style="text-align: center;">Carregando produtos...</td>
                 </tr>
             </tbody>
         </table>
@@ -52,6 +53,10 @@
                 <div class="form-group" style="flex: 1;">
                     <label for="preco">Preço (R$)</label>
                     <input type="number" id="preco" class="form-control" step="0.01" min="0.01" required placeholder="0.00">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="barcode">Código de Barras (EAN-13)</label>
+                    <input type="text" id="barcode" class="form-control" placeholder="Deixe em branco para gerar automático">
                 </div>
             </div>
             
@@ -94,6 +99,10 @@
                     <label for="edit-preco">Preço (R$)</label>
                     <input type="number" id="edit-preco" class="form-control" step="0.01" min="0.01" required placeholder="0.00">
                 </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="edit-barcode">Código de Barras (EAN-13)</label>
+                    <input type="text" id="edit-barcode" class="form-control" placeholder="Deixe em branco para gerar automático">
+                </div>
             </div>
             
             <div style="display: flex; gap: 16px;">
@@ -114,6 +123,7 @@
         </form>
     </div>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -132,7 +142,7 @@
                 tbody.innerHTML = '';
                 
                 if(products.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Nenhum produto cadastrado.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Nenhum produto cadastrado.</td></tr>';
                     return;
                 }
                 
@@ -143,6 +153,7 @@
                     const priceFormatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price);
                     const stock = p.stock;
                     const min_stock = p.min_stock;
+                    const barcode = p.barcode || '';
                     
                     let statusBadge = '<span class="badge badge-success">OK</span>';
                     if (stock <= min_stock) {
@@ -156,9 +167,10 @@
                         <td>${priceFormatted}</td>
                         <td>${stock}</td>
                         <td>${min_stock}</td>
+                        <td><code style="font-size: 13px; color: var(--text-muted);">${barcode || '-'}</code></td>
                         <td>${statusBadge}</td>
                         <td>
-                            <button class="btn" style="padding: 6px 12px; font-size: 13px; background: var(--primary); color: white; display: inline-flex; align-items: center; gap: 4px;" onclick="openEditModal(${id}, '${name.replace(/'/g, "\\'")}', ${price}, ${stock}, ${min_stock})">
+                            <button class="btn" style="padding: 6px 12px; font-size: 13px; background: var(--primary); color: white; display: inline-flex; align-items: center; gap: 4px;" onclick="openEditModal(${id}, '${name.replace(/'/g, "\\'")}', ${price}, ${stock}, ${min_stock}, '${barcode}')">
                                 <i class="material-icons-outlined" style="font-size: 16px;">edit</i> Editar
                             </button>
                         </td>
@@ -171,12 +183,13 @@
         }
     }
 
-    function openEditModal(id, name, price, stock, min_stock) {
+    function openEditModal(id, name, price, stock, min_stock, barcode) {
         document.getElementById('edit-id').value = id;
         document.getElementById('edit-nome').value = name;
         document.getElementById('edit-preco').value = price;
         document.getElementById('edit-estoque').value = stock;
         document.getElementById('edit-min_estoque').value = min_stock;
+        document.getElementById('edit-barcode').value = barcode;
         openModal('modal-editar-produto');
     }
 
@@ -188,7 +201,8 @@
             name: document.getElementById('edit-nome').value,
             price: parseFloat(document.getElementById('edit-preco').value),
             stock: parseInt(document.getElementById('edit-estoque').value),
-            min_stock: parseInt(document.getElementById('edit-min_estoque').value)
+            min_stock: parseInt(document.getElementById('edit-min_estoque').value),
+            barcode: document.getElementById('edit-barcode').value
         };
         
         try {
@@ -219,7 +233,8 @@
             name: document.getElementById('nome').value,
             price: parseFloat(document.getElementById('preco').value),
             stock: parseInt(document.getElementById('estoque').value),
-            min_stock: parseInt(document.getElementById('min_estoque').value)
+            min_stock: parseInt(document.getElementById('min_estoque').value),
+            barcode: document.getElementById('barcode').value
         };
         
         try {
@@ -243,5 +258,6 @@
             alert("Erro de conexão.");
         }
     }
+
 </script>
 {% endblock %}
